@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Daily Report">
+<title>Site Daily Progress Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:12px;background:#f2f2f7;color:#000}
+  h1{font-size:18px;text-align:center;margin:8px 0}
+  .card{background:#fff;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .card h2{font-size:14px;margin:0 0 10px;color:#007aff;text-transform:uppercase;letter-spacing:.5px}
+  label{display:block;font-size:12px;font-weight:600;margin:10px 0 4px;color:#555}
+  input,select,textarea{width:100%;padding:10px;font-size:15px;border:1px solid #d1d1d6;border-radius:8px;background:#fff}
+  input[readonly]{background:#f2f2f7;color:#666}
+  .row{display:flex;gap:8px}
+  .row>div{flex:1}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border:1px solid #d1d1d6;padding:6px 4px;text-align:left}
+  th{background:#f2f2f7;font-weight:600}
+  td input,td select{padding:6px;font-size:13px}
+  .add-btn{background:#34c759;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:13px;margin-top:8px}
+  .del-btn{background:#ff3b30;color:#fff;border:none;padding:4px 8px;border-radius:6px;font-size:11px}
+  .main-btn{width:100%;padding:16px;font-size:16px;font-weight:600;background:#007aff;color:#fff;border:none;border-radius:12px;margin-top:12px}
+  .tot{font-weight:700;background:#fffbcc}
+  #pdfview{display:none}
+  .pdfpage{width:794px;background:#fff;padding:30px;font-family:Arial,sans-serif;font-size:11px;color:#000}
+  .pdfpage h1{font-size:16px;text-align:center;margin:0 0 8px;border-bottom:2px solid #000;padding-bottom:6px}
+  .pdfpage table{font-size:10px}
+  .pdfpage th,.pdfpage td{border:1px solid #333;padding:3px 4px}
+  .pdfpage th{background:#ddd}
+  .pdfhead{display:flex;justify-content:space-between;font-size:10px;margin-bottom:8px}
+  .pdfsec{font-weight:700;background:#eee;text-align:center;padding:3px;margin-top:6px}
+</style>
+</head>
+<body>
+
+<h1>Site Daily Progress Report</h1>
+
+<!-- ══════════ HEADER INFO ══════════ -->
+<div class="card">
+  <h2>Project Info</h2>
+  <div class="row">
+    <div><label>Contract No</label><input id="contract" value="Package 2" readonly></div>
+    <div><label>Project</label><input id="proj" value="AFD" readonly></div>
+  </div>
+  <label>Progress Report No (auto)</label>
+  <input id="docno" readonly>
+  <label>Date of Report</label>
+  <input type="date" id="rdate">
+</div>
+
+<!-- ══════════ WEATHER ══════════ -->
+<div class="card">
+  <h2>Weather & Site Conditions</h2>
+  <div class="row">
+    <div><label>Today's Weather</label>
+      <select id="weather">
+        <option>Sunny</option><option>Cloudy</option><option>Partly Cloudy</option>
+        <option>Rainy</option><option>Dusty</option><option>Sandstorm</option><option>Hazy</option>
+      </select>
+    </div>
+    <div><label>Temperature (°C)</label><input type="number" step="0.1" id="temp"></div>
+  </div>
+  <div class="row">
+    <div><label>Wind Velocity (km/h)</label><input type="number" step="0.1" id="wind"></div>
+    <div><label>Dust</label>
+      <select id="dust"><option>Low</option><option>Moderate</option><option>High</option><option>Severe</option></select>
+    </div>
+  </div>
+  <div class="row">
+    <div><label>1st Shift From</label><input type="time" id="s1a" value="08:00"></div>
+    <div><label>To</label><input type="time" id="s1b" value="17:00"></div>
+  </div>
+  <div class="row">
+    <div><label>Work Hrs 1st Shift</label><input type="number" step="0.5" id="hrs1" value="8"></div>
+    <div><label>Work Hrs 2nd Shift</label><input id="hrs2" value="N/A"></div>
+  </div>
+</div>
+
+<!-- ══════════ MANPOWER ══════════ -->
+<div class="card">
+  <h2>Manpower Status</h2>
+  <table id="mp-table">
+    <thead><tr><th>Category</th><th>1st</th><th>2nd</th><th>Tot MHrs</th><th>Type</th><th></th></tr></thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr class="tot"><td>Total Direct</td><td id="mp-d-1">0</td><td id="mp-d-2">0</td><td id="mp-d-t">0</td><td colspan="2"></td></tr>
+      <tr class="tot"><td>Total Indirect</td><td id="mp-i-1">0</td><td id="mp-i-2">0</td><td id="mp-i-t">0</td><td colspan="2"></td></tr>
+    </tfoot>
+  </table>
+  <button class="add-btn" onclick="addMP()">+ Add Row</button>
+</div>
+
+<!-- ══════════ EXECUTED ══════════ -->
+<div class="card">
+  <h2>Executed / In-Progress Activities</h2>
+  <table id="ex-table">
+    <thead><tr><th>Location</th><th>Description</th><th>Unit</th><th>Qty</th><th>Remarks</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button class="add-btn" onclick="addRow('ex-table')">+ Add Row</button>
+</div>
+
+<!-- ══════════ MATERIAL ══════════ -->
+<div class="card">
+  <h2>Material Delivered at Site</h2>
+  <table id="mt-table">
+    <thead><tr><th>Location</th><th>Description</th><th>Unit</th><th>Qty</th><th>Remarks</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button class="add-btn" onclick="addRow('mt-table')">+ Add Row</button>
+</div>
+
+<!-- ══════════ PLANNED ══════════ -->
+<div class="card">
+  <h2>Planned Activities for Tomorrow</h2>
+  <table id="pl-table">
+    <thead><tr><th>Location</th><th>Description</th><th>Unit</th><th>Qty</th><th>Remarks</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button class="add-btn" onclick="addRow('pl-table')">+ Add Row</button>
+</div>
+
+<!-- ══════════ EQUIPMENT ══════════ -->
+<div class="card">
+  <h2>Equipment</h2>
+  <table id="eq-table">
+    <thead><tr><th>Item</th><th>1st</th><th>2nd</th><th>Status</th><th>Total</th><th></th></tr></thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr class="tot"><td>Total Operational</td><td id="eq-o-1">0</td><td id="eq-o-2">0</td><td></td><td id="eq-o-t">0</td><td></td></tr>
+      <tr class="tot"><td>Total Idle</td><td id="eq-i-1">0</td><td id="eq-i-2">0</td><td></td><td id="eq-i-t">0</td><td></td></tr>
+    </tfoot>
+  </table>
+  <button class="add-btn" onclick="addEQ()">+ Add Row</button>
+</div>
+
+<!-- ══════════ NOTES ══════════ -->
+<div class="card">
+  <h2>Comments</h2>
+  <label>Area of Concern</label>
+  <textarea id="concern" rows="3"></textarea>
+  <label>Engineer's Comments</label>
+  <textarea id="engcomments" rows="3"></textarea>
+  <label>Contractor's Representative</label>
+  <input id="crep">
+  <label>Project Manager (GB / UNICON)</label>
+  <input id="pm">
+</div>
+
+<button class="main-btn" id="genbtn">📄 Generate & Share PDF</button>
+
+<!-- Hidden render target for PDF -->
+<div id="pdfview"></div>
+
+<script>
+const { jsPDF } = window.jspdf;
+
+/* ══════════════════════════════════════════
+   1. DOC NUMBER — auto sequence in localStorage
+   Format: AFD-RFAE-PK2-RE-DP-0001
+   ══════════════════════════════════════════ */
+function nextDocNo(){
+  let n = parseInt(localStorage.getItem('dpr_seq') || '0', 10) + 1;
+  return 'AFD-RFAE-PK2-RE-DP-' + String(n).padStart(4,'0');
+}
+document.getElementById('docno').value = nextDocNo();
+
+/* ══════════════════════════════════════════
+   2. DATE — today
+   ══════════════════════════════════════════ */
+document.getElementById('rdate').value = new Date().toISOString().slice(0,10);
+
+/* ══════════════════════════════════════════
+   3. WEATHER — Open-Meteo auto-fetch
+   Change lat/lon to your site (default: Riyadh area)
+   ══════════════════════════════════════════ */
+const LAT = 24.7136, LON = 46.6753;  // ⚠️ CHANGE TO YOUR SITE
+fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,wind_speed_10m,weather_code`)
+  .then(r=>r.json()).then(d=>{
+    document.getElementById('temp').value = d.current.temperature_2m;
+    document.getElementById('wind').value = d.current.wind_speed_10m;
+    const code = d.current.weather_code;
+    let w = 'Sunny';
+    if(code===0) w='Sunny';
+    else if(code<=3) w='Partly Cloudy';
+    else if(code<=48) w='Hazy';
+    else if(code<=67) w='Rainy';
+    else if(code>=95) w='Sandstorm';
+    document.getElementById('weather').value = w;
+    // Guess dust from wind
+    const ws = d.current.wind_speed_10m;
+    document.getElementById('dust').value = ws<15?'Low':ws<30?'Moderate':ws<50?'High':'Severe';
+  }).catch(()=>{});
+
+/* ══════════════════════════════════════════
+   4. TABLE BUILDERS
+   ══════════════════════════════════════════ */
+function addMP(){
+  const tb = document.querySelector('#mp-table tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input placeholder="Category"></td>
+    <td><input type="number" value="0" oninput="calcMP()"></td>
+    <td><input type="number" value="0" oninput="calcMP()"></td>
+    <td class="mh">0</td>
+    <td><select onchange="calcMP()"><option>Direct</option><option>Indirect</option></select></td>
+    <td><button class="del-btn" onclick="this.closest('tr').remove();calcMP()">×</button></td>`;
+  tb.appendChild(tr); calcMP();
+}
+function calcMP(){
+  const hrs = parseFloat(document.getElementById('hrs1').value)||0;
+  document.querySelectorAll('#mp-table tbody tr').forEach(tr=>{
+    const b = parseFloat(tr.children[1].querySelector('input').value)||0;
+    const c = parseFloat(tr.children[2].querySelector('input').value)||0;
+    tr.querySelector('.mh').textContent = (b+c)*hrs;
+  });
+  ['Direct','Indirect'].forEach(type=>{
+    let s1=0,s2=0,st=0;
+    document.querySelectorAll('#mp-table tbody tr').forEach(tr=>{
+      if(tr.children[4].querySelector('select').value===type){
+        s1+=parseFloat(tr.children[1].querySelector('input').value)||0;
+        s2+=parseFloat(tr.children[2].querySelector('input').value)||0;
+        st+=parseFloat(tr.querySelector('.mh').textContent)||0;
+      }
+    });
+    const p = type==='Direct'?'d':'i';
+    document.getElementById(`mp-${p}-1`).textContent=s1;
+    document.getElementById(`mp-${p}-2`).textContent=s2;
+    document.getElementById(`mp-${p}-t`).textContent=st;
+  });
+}
+
+function addRow(tid){
+  const tb = document.querySelector(`#${tid} tbody`);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input></td><td><input></td><td><input></td>
+    <td><input type="number"></td><td><input></td>
+    <td><button class="del-btn" onclick="this.closest('tr').remove()">×</button></td>`;
+  tb.appendChild(tr);
+}
+
+function addEQ(){
+  const tb = document.querySelector('#eq-table tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input placeholder="Item"></td>
+    <td><input type="number" value="0" oninput="calcEQ()"></td>
+    <td><input type="number" value="0" oninput="calcEQ()"></td>
+    <td><select onchange="calcEQ()"><option>Operational</option><option>Idle</option></select></td>
+    <td class="et">0</td>
+    <td><button class="del-btn" onclick="this.closest('tr').remove();calcEQ()">×</button></td>`;
+  tb.appendChild(tr); calcEQ();
+}
+function calcEQ(){
+  document.querySelectorAll('#eq-table tbody tr').forEach(tr=>{
+    const b=parseFloat(tr.children[1].querySelector('input').value)||0;
+    const c=parseFloat(tr.children[2].querySelector('input').value)||0;
+    tr.querySelector('.et').textContent=b+c;
+  });
+  ['Operational','Idle'].forEach(st=>{
+    let s1=0,s2=0,tt=0;
+    document.querySelectorAll('#eq-table tbody tr').forEach(tr=>{
+      if(tr.children[3].querySelector('select').value===st){
+        s1+=parseFloat(tr.children[1].querySelector('input').value)||0;
+        s2+=parseFloat(tr.children[2].querySelector('input').value)||0;
+        tt+=parseFloat(tr.querySelector('.et').textContent)||0;
+      }
+    });
+    const p = st==='Operational'?'o':'i';
+    document.getElementById(`eq-${p}-1`).textContent=s1;
+    document.getElementById(`eq-${p}-2`).textContent=s2;
+    document.getElementById(`eq-${p}-t`).textContent=tt;
+  });
+}
+
+// Seed 3 blank rows each
+addMP(); addMP();
+['ex-table','mt-table','pl-table'].forEach(t=>{addRow(t);addRow(t);});
+addEQ(); addEQ();
+
+/* ══════════════════════════════════════════
+   5. BUILD PDF RENDER (HTML snapshot)
+   ══════════════════════════════════════════ */
+function buildReportHTML(docno){
+  const v = id => document.getElementById(id).value;
+  const esc = s => (s||'').replace(/[<>&]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+  // Manpower rows
+  let mpRows = '';
+  document.querySelectorAll('#mp-table tbody tr').forEach(tr=>{
+    mpRows += `<tr>
+      <td>${esc(tr.children[0].querySelector('input').value)}</td>
+      <td>${tr.children[1].querySelector('input').value}</td>
+      <td>${tr.children[2].querySelector('input').value}</td>
+      <td>${tr.querySelector('.mh').textContent}</td>
+      <td>${tr.children[4].querySelector('select').value}</td>
+    </tr>`;
+  });
+
+  const makeTable = (tid, headers) => {
+    let out = `<table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+    document.querySelectorAll(`#${tid} tbody tr`).forEach(tr=>{
+      out += '<tr>';
+      tr.querySelectorAll('input').forEach(inp=> out += `<td>${esc(inp.value)}</td>`);
+      out += '</tr>';
+    });
+    out += '</tbody></table>';
+    return out;
+  };
+
+  // Equipment
+  let eqRows = '';
+  document.querySelectorAll('#eq-table tbody tr').forEach(tr=>{
+    eqRows += `<tr>
+      <td>${esc(tr.children[0].querySelector('input').value)}</td>
+      <td>${tr.children[1].querySelector('input').value}</td>
+      <td>${tr.children[2].querySelector('input').value}</td>
+      <td>${tr.children[3].querySelector('select').value}</td>
+      <td>${tr.querySelector('.et').textContent}</td>
+    </tr>`;
+  });
+
+  return `
+  <div class="pdfpage">
+    <h1>DAILY PROGRESS REPORT</h1>
+    <div class="pdfhead">
+      <div><b>Project Contract No:</b> ${v('contract')}</div>
+      <div><b>Project Name:</b> ${v('proj')}</div>
+      <div><b>Report No:</b> ${docno}</div>
+    </div>
+    <table>
+      <tr>
+        <th>Date of Report</th><td>${v('rdate')}</td>
+        <th>Weather</th><td>${v('weather')}</td>
+        <th>Temp</th><td>${v('temp')}°C</td>
+        <th>Wind</th><td>${v('wind')} km/h</td>
+        <th>Dust</th><td>${v('dust')}</td>
+      </tr>
+      <tr>
+        <th>1st Shift</th><td>${v('s1a')} – ${v('s1b')}</td>
+        <th>Work Hrs 1st</th><td>${v('hrs1')}</td>
+        <th>Work Hrs 2nd</th><td>${v('hrs2')}</td>
+        <td colspan="4"></td>
+      </tr>
+    </table>
+
+    <div class="pdfsec">MANPOWER STATUS</div>
+    <table>
+      <thead><tr><th>Category</th><th>1st Shift</th><th>2nd Shift</th><th>Tot MHrs</th><th>Type</th></tr></thead>
+      <tbody>${mpRows}
+        <tr><td colspan="5" style="background:#fffbcc"><b>Total Direct:</b> ${document.getElementById('mp-d-1').textContent} / ${document.getElementById('mp-d-2').textContent} / ${document.getElementById('mp-d-t').textContent}</td></tr>
+        <tr><td colspan="5" style="background:#fffbcc"><b>Total Indirect:</b> ${document.getElementById('mp-i-1').textContent} / ${document.getElementById('mp-i-2').textContent} / ${document.getElementById('mp-i-t').textContent}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="pdfsec">EXECUTED / IN-PROGRESS ACTIVITIES</div>
+    ${makeTable('ex-table',['Location','Description','Unit','Qty','Remarks'])}
+
+    <div class="pdfsec">MATERIAL DELIVERED AT SITE</div>
+    ${makeTable('mt-table',['Location','Description','Unit','Qty','Remarks'])}
+
+    <div class="pdfsec">PLANNED ACTIVITIES FOR TOMORROW</div>
+    ${makeTable('pl-table',['Location','Description','Unit','Qty','Remarks'])}
+
+    <div class="pdfsec">EQUIPMENT</div>
+    <table>
+      <thead><tr><th>Item</th><th>1st</th><th>2nd</th><th>Status</th><th>Total</th></tr></thead>
+      <tbody>${eqRows}
+        <tr><td colspan="5" style="background:#fffbcc"><b>Total Operational:</b> ${document.getElementById('eq-o-1').textContent} / ${document.getElementById('eq-o-2').textContent} / ${document.getElementById('eq-o-t').textContent}</td></tr>
+        <tr><td colspan="5" style="background:#fffbcc"><b>Total Idle:</b> ${document.getElementById('eq-i-1').textContent} / ${document.getElementById('eq-i-2').textContent} / ${document.getElementById('eq-i-t').textContent}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="pdfsec">AREA OF CONCERN</div>
+    <div style="border:1px solid #333;padding:6px;min-height:40px">${esc(v('concern')).replace(/\n/g,'<br>')||'&nbsp;'}</div>
+
+    <div class="pdfsec">ENGINEER'S COMMENTS</div>
+    <div style="border:1px solid #333;padding:6px;min-height:40px">${esc(v('engcomments')).replace(/\n/g,'<br>')||'&nbsp;'}</div>
+
+    <table style="margin-top:20px">
+      <tr>
+        <th style="width:50%">Contractor's Representative</th>
+        <th style="width:50%">Project Manager (GB / UNICON)</th>
+      </tr>
+      <tr>
+        <td style="height:60px;vertical-align:bottom">${esc(v('crep'))}<br><small>Date: ${v('rdate')}</small></td>
+        <td style="height:60px;vertical-align:bottom">${esc(v('pm'))}<br><small>Date: ${v('rdate')}</small></td>
+      </tr>
+    </table>
+  </div>`;
+}
+
+/* ══════════════════════════════════════════
+   6. GENERATE PDF + SHARE
+   ══════════════════════════════════════════ */
+document.getElementById('genbtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('genbtn');
+  btn.disabled = true; btn.textContent = 'Generating PDF…';
+
+  const docno = document.getElementById('docno').value;
+  const view = document.getElementById('pdfview');
+  view.style.display = 'block';
+  view.innerHTML = buildReportHTML(docno);
+
+  try {
+    const canvas = await html2canvas(view.querySelector('.pdfpage'), {scale:2, backgroundColor:'#fff'});
+    const pdf = new jsPDF('p','mm','a4');
+    const pw = 210, ph = 297;
+    const imgW = pw - 10;
+    const imgH = canvas.height * imgW / canvas.width;
+
+    if(imgH <= ph - 10){
+      pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',5,5,imgW,imgH);
+    } else {
+      // multi-page
+      const pageCanvasH = canvas.width * (ph-10) / imgW;
+      let y = 0, page = 0;
+      while(y < canvas.height){
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = Math.min(pageCanvasH, canvas.height - y);
+        slice.getContext('2d').drawImage(canvas, 0, -y);
+        if(page>0) pdf.addPage();
+        const sH = slice.height * imgW / canvas.width;
+        pdf.addImage(slice.toDataURL('image/jpeg',0.92),'JPEG',5,5,imgW,sH);
+        y += pageCanvasH; page++;
+      }
+    }
+
+    const blob = pdf.output('blob');
+    const file = new File([blob], `${docno}.pdf`, {type:'application/pdf'});
+
+    // Bump sequence AFTER successful generation
+    const n = parseInt(localStorage.getItem('dpr_seq')||'0',10)+1;
+    localStorage.setItem('dpr_seq', n);
+
+    const body = `Dear all!
+
+Kindly review the attached document ${docno}
+and advise should any further information or clarification.
+
+Best regards`;
+
+    // iOS native share (Mail, WhatsApp, Teams, etc.)
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title: docno, text: body});
+    } else {
+      // Fallback for desktop
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${docno}.pdf`; a.click();
+      window.location.href = `mailto:?subject=${encodeURIComponent(docno)}&body=${encodeURIComponent(body)}`;
+    }
+
+    // Refresh doc number for next entry
+    document.getElementById('docno').value = nextDocNo();
+
+  } catch(err){
+    alert('Error: ' + err.message);
+  } finally {
+    view.style.display='none';
+    btn.disabled=false; btn.textContent='📄 Generate & Share PDF';
+  }
+});
+</script>
+</body>
+</html>
